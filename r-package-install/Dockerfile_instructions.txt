@@ -1,0 +1,3 @@
+# Install additional R packages with r-packages.txt similar to Python's requirements.txt
+COPY install-R-packages.R r-packages.txt translations.tar.gz  ./
+RUN Rsudo tar -zxvf translations.tar.gz && script install-R-packages.R
