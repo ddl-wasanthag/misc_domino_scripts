@@ -1,2 +1,0 @@
-#Example update theme to Idle Fingers
-sed -i '31a\    "editor_theme": "Idle Fingers",' /opt/domino/workspaces/rstudio/start && sed -i '32a\ "highlight_r_function_calls": true,' /opt/domino/workspaces/rstudio/start 

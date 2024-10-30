@@ -1,0 +1,21 @@
+# Create .vscode/settings.json with the desired content
+# assuming vscode reads the settings from /home/ubuntu/.vscode/User
+RUN mkdir -p /home/ubuntu/.vscode/User && \
+    cat <<EOF > /home/ubuntu/.vscode/User/settings.json
+{
+    "extensions.autoUpdate": false,
+    "extensions.autoCheckUpdates": false,
+    "python.pythonPath": "/opt/conda/bin/python",
+    "workbench.startupEditor": "none",
+    "workbench.colorTheme": "Default Dark+",
+    "python.defaultInterpreterPath": "/opt/conda/bin/python",
+    "jupyter.notebook.defaultKernel": {
+        "name": "python3",
+        "display_name": "Python 3"
+        },
+     "jupyter.kernels.excludePythonEnvironments": [
+        "/bin/python3",
+        "/usr/bin/python3"
+    ]
+}
+EOF
