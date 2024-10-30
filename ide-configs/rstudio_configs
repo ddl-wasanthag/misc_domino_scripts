@@ -1,0 +1,169 @@
+# Add custom R code to .Rprofile
+# Specifically R code that runs pre-session-initiation, i.e., R base functions and assignments
+cat << 'EOF' >> /home/ubuntu/.Rprofile
+
+# Custom Aliases and Color Loading Function
+# Shorten common functions and define team colors for easy access.
+## Team-wide aliases for R functions 
+if (interactive()) {
+    tf <- rstudioapi::navigateToFile # Alias to open files in RStudio by calling tf("path/to/file.R")
+}
+
+## Data/Variable loaders 
+if (interactive()) {
+    company_col <- function(){ # Load company colors with company_col() in the RStudio environment.
+        endeavor_blue <<- "#005eb8" 
+        monza_red <<- "#e4002b"
+        carmine_red <<- "#ab0120"
+        sirocco_grey <<- "#737d7d"
+    }
+}
+
+## Logging Environment Details
+# Display Domino environment variables to keep track of session version and image info.
+message(paste0("Domino Revision Number: ", Sys.getenv("DOMINO_REVISION_VERSION"), "\n",
+               "Domino Base Image: ", Sys.getenv("DOMINO_BASE_IMAGE_URI")))
+message("Custom .Rprofile settings loaded")
+EOF
+
+# Keyboard shortcuts setup for RStudio
+# Adds custom RStudio keyboard binding for `Ctrl+W` to close documents, streamlining workflow.
+mkdir -p ~/.config/rstudio/keybindings
+echo '{
+    "closeSourceDoc": "Ctrl+W"
+}' >> ~/.config/rstudio/keybindings/rstudio_bindings.json
+
+# For more complex customization, use setHook wrapper for code that needs to run post-session-initiation 
+# i.e., for functions from packages outside of base R (or rstudioapi), or dynamically edited scripts.
+cat << 'EOF' >> /home/ubuntu/.Rprofile
+setHook("rstudio.sessionInit", function(newSession) { 
+    if (newSession) {                                                                            
+        # Example of calling functions or scripts post-initialization 
+        # processx::run("bash", c("-c", "ls -L")) # Example for bash call after session starts.
+        message("Number of Available Cores: ", parallelly::availableCores()) # Helpful for parallel processing
+        message("Custom sessionInit completed successfully") 
+        # Additional setup code can be added here. End each line with ;
+    }                                                           
+}, action = "append")
+EOF
+
+# User Extensions for Aesthetic Adjustments
+# Reserved for visual customizations only, ensuring reproducibility in core code.
+
+# RStudio Code Snippets for Efficient Coding
+# Collection of snippets for common tasks to speed up coding workflows, such as Shiny templates and control structures.
+mkdir -p ~/.config/rstudio/snippets
+cat << 'EOF' >> ~/.config/rstudio/snippets/r.snippets
+snippet todor
+    todor::todor_file(rstudioapi::getSourceEditorContext()\$path) # Generates a TODO list for an R file.
+
+snippet spell
+    spelling::spell_check_files(rstudioapi::getSourceEditorContext()\$path) # Spell checks the active file.
+
+snippet lib
+    library(${1:package}) # Template for loading a library.
+
+snippet req
+    require(${1:package}) # Template for loading a package with require.
+
+snippet src
+    source("${1:file.R}") # Template for sourcing a file.
+
+snippet ret
+    return(${1:code}) # Return statement shortcut.
+
+# Common Control Structures
+snippet if
+    if (${1:condition}) {
+        ${0}
+    }
+
+snippet el
+    else {
+        ${0}
+    }
+
+snippet ei
+    else if (${1:condition}) {
+        ${0}
+    }
+
+snippet fun
+    ${1:name} <- function(${2:variables}) {
+        ${0}
+    }
+
+snippet for
+    for (${1:variable} in ${2:vector}) {
+        ${0}
+    }
+
+snippet while
+    while (${1:condition}) {
+        ${0}
+    }
+
+snippet switch
+    switch (${1:object},
+        ${2:case} = ${3:action}
+    )
+
+# Apply Family Functions
+snippet apply
+    apply(${1:array}, ${2:margin}, ${3:...})
+
+snippet lapply
+    lapply(${1:list}, ${2:function})
+
+snippet sapply
+    sapply(${1:list}, ${2:function})
+
+snippet mapply
+    mapply(${1:function}, ${2:...})
+
+snippet tapply
+    tapply(${1:vector}, ${2:index}, ${3:function})
+
+snippet vapply
+    vapply(${1:list}, ${2:function}, FUN.VALUE = ${3:type}, ${4:...})
+
+snippet rapply
+    rapply(${1:list}, ${2:function})
+
+# Timestamp Template
+snippet ts
+    `r paste("#", date(), "------------------------------\n")`
+
+# Shiny Application Template
+snippet shinyapp
+    library(shiny)
+    
+    ui <- fluidPage(
+      ${0}
+    )
+    
+    server <- function(input, output, session) {
+      
+    }
+    
+    shinyApp(ui, server)
+
+# Shiny Module Template
+snippet shinymod
+    ${1:name}UI <- function(id) {
+      ns <- NS(id)
+      tagList(
+        ${0}
+      )
+    }
+    
+    ${1:name}Server <- function(id) {
+      moduleServer(
+        id,
+        function(input, output, session) {
+          
+        }
+      )
+    }
+EOF
+
