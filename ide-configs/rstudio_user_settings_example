@@ -1,0 +1,6 @@
+# Add Rstudio Session User Settings
+# see https://docs.posit.co/ide/server-pro/1.3.842-1/session-user-settings.html
+RUN sed -i '31a\    "editor_theme": "Idle Fingers",' /opt/domino/workspaces/rstudio/start \
+ && sed -i '32a\ "highlight_r_function_calls": true,' /opt/domino/workspaces/rstudio/start \
+ && sed -i '33a\ "rainbow_parentheses": true,' /opt/domino/workspaces/rstudio/start \ 
+ && sed -i '46a\echo copilot-enabled=1 >> /etc/rstudio/rsession.conf' /opt/domino/workspaces/rstudio/start 
