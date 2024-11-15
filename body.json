@@ -1,0 +1,104 @@
+{
+  "dockerfileInstructions": "RUN pip install pymongo --user \nRUN pip install awscli --user",
+  "environmentVariables": [
+    {
+      "key": "USERNAME",
+      "value": "my_name"
+    }
+  ],
+  "image": "172.20.87.71:5000/dominodatalab/environment:63d1858002d1b0675ad45a78-4",
+  "postRunScript": "ls -l",
+  "postSetupScript": "",
+  "preRunScript": "ls -l",
+  "preSetupScript": "",
+  "skipCache": true,
+  "summary": "test CE",
+  "supportedClusters": [],
+  "tags": [
+    "AZ-APi"
+  ],
+  "archived": false,
+  "shouldUseVPN": false,
+  "workspaceTools": [
+    {
+      "iconUrl": "/assets/images/workspace-logos/Jupyter.svg",
+      "name": "Jupyter",
+      "proxyConfig": {
+        "internalPath": "/{{ownerUsername}}/{{projectName}}/{{sessionPathComponent}}/{{runId}}/{{#if pathToOpen}}tree/{{pathToOpen}}{{/if}}",
+        "port": 8888,
+        "requireSubdomain": false,
+        "rewrite": false
+      },
+      "startScripts": [
+        "/opt/domino/workspaces/jupyter/start"
+      ],
+      "supportedFileExtensions": [
+        ".ipynb"
+      ],
+      "title": "Jupyter"
+    },
+    {
+      "iconUrl": "/assets/images/workspace-logos/jupyterlab.svg",
+      "name": "JupyterLab",
+      "proxyConfig": {
+        "internalPath": "/{{ownerUsername}}/{{projectName}}/{{sessionPathComponent}}/{{runId}}/{{#if pathToOpen}}tree/{{pathToOpen}}{{/if}}",
+        "port": 8888,
+        "requireSubdomain": false,
+        "rewrite": false
+      },
+      "startScripts": [
+        "/opt/domino/workspaces/jupyterlab/start"
+      ],
+      "title": "JupyterLab"
+    },
+    {
+      "iconUrl": "/assets/images/workspace-logos/vscode.svg",
+      "name": "VSCode",
+      "proxyConfig": {
+        "internalPath": "/",
+        "port": 8888,
+        "requireSubdomain": false,
+        "rewrite": true
+      },
+      "startScripts": [
+        "/opt/domino/workspaces/vscode/start"
+      ],
+       "title": "VSCode"
+    },
+    {
+      "iconUrl": "/assets/images/workspace-logos/Rstudio.svg",
+      "name": "RStudio",
+      "proxyConfig": {
+        "internalPath": "/",
+        "port": 8888,
+        "requireSubdomain": false,
+        "rewrite": true
+      },
+      "startScripts": [
+        "/opt/domino/workspaces/rstudio/start"
+      ],
+       "title": "RStudio"
+    },
+    {
+      "iconUrl": "https://raw.githubusercontent.com/dominodatalab/workspace-configs/develop/workspace-logos/ttyd.svg",
+      "name": "Terminal",
+      "proxyConfig": {
+        "internalPath": "/",
+        "port": 8888,
+        "requireSubdomain": false,
+        "rewrite": true
+      },
+      "startScripts": [
+        "/opt/domino/workspaces/ttyd/start"
+      ],
+      "title": "Terminal"
+    }
+  ],
+  "addBaseDependencies": true,
+  "description": "API CE fro AZ",
+  "name": "AZ-API-Test2",
+  "orgOwnerId": "",
+  "visibility": "global"
+}
+
+
