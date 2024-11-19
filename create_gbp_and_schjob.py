@@ -1,6 +1,6 @@
 # How to run
 # python script.py <username> <domino_url> <github_pat> "<job command>" "<cron schedule>" "<project name>"
-# python3 create_gbp_and_schjob.py wasantha_gamage your-domino.domino.tech ghp_xxxxxxxxx scripts/h2o_model_train.py '0 0/30 * * * ?' az_idle_wks
+# python3 create_gbp_and_schjob.py wasantha_gamage prod-field.cs.domino.tech ghp_xxxxxxxxx scripts/h2o_model_train.py '0 0/30 * * * ?' az_idle_wks
 
 import requests
 import json
