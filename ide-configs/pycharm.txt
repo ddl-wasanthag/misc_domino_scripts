@@ -1,0 +1,193 @@
+# Dockerfile Instructions
+# Use Domino standard Env as the base.
+USER root
+ENV WORKSPACE_NAME=pycharm
+ENV WORKSPACE_APP_TO_START=/opt/jetbrains/pycharm/bin/pycharm.sh
+ARG GUAC_VERSION=1.5.3
+ENV GUAC_VERSION=1.5.3
+
+ARG TOMCAT_VERSION=tomcat9
+ENV TOMCAT_VERSION=tomcat9
+
+ARG PYCHARM_VERSION=pycharm-community-2024.3.1.1
+ENV PYCHARM_VERSION=pycharm-community-2024.3.1.1
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+# COPY guac-start.sh /opt/domino/workspaces/pycharm/start
+COPY <<EOF /opt/domino/workspaces/pycharm/start
+#!/bin/bash
+#
+# Startup script for guacamole virtual desktop
+#     Starts up the apache tomcat web server
+#     Starts the xrdp service which guac will use to communicate with the x server
+#     Starts the guacd server which communicates with the guac client (web application)
+#
+# User mapping is modified so that all applications run on the
+#     virtual desktop are run with the same username as Domino user
+#
+# The user-mapping.xml when read by guacamole will launch a
+#     window manager (Flux), and the window manager start script (flux-start.sh)
+#     will launch the desired workspace application
+#
+# NOTE: If this script terminates, docker will presume the container
+#           is no longer needed and will shut it down.
+#           For this reason we keep it running in an endless loop.
+#           Welcome ideas on improving this hack.
+#
+
+#
+# Set the name or path of the application to run
+#
+sudo sed -i "s#replaced_by_sed#/opt/jetbrains/pycharm/bin/pycharm.sh#g" /opt/domino/workspaces/flux/start
+
+#
+# Match logins - Run programs in the environment using the name you login to Domino with
+#
+DOMINO_USER_NAME=ubuntu
+DOMINO_ACCOUNT_LOGIN=\$DOMINO_STARTING_USERNAME
+# Force the default \$DOMINO_USER_NAME to rename to \$DOMINO_STARTING_USERNAME
+# This is required to ensure the MATLAB License Server is able to properly
+# accounnt for real usernames instead of the container's default
+# username (i.e. ubuntu or domino)
+printf "%s    ALL=NOPASSWD: ALL\\n" \${DOMINO_ACCOUNT_LOGIN} | sudo tee -a /etc/sudoers >/dev/null
+sudo usermod -l \$DOMINO_ACCOUNT_LOGIN \$DOMINO_USER_NAME
+export DOMINO_USER_NAME=\$DOMINO_ACCOUNT_LOGIN
+#
+# Modify the user-mapping to use actual Domino username
+sudo sed -i "s#replaced_by_sed#\$DOMINO_ACCOUNT_LOGIN#g" /etc/guacamole/user-mapping.xml
+#
+# End match logins mods
+#
+
+# Ensure password is set for Domino user for RDP autologin to work
+echo -e "domino\\ndomino" | sudo passwd \$DOMINO_USER_NAME &>/dev/null
+
+# Key Tomcat vars
+export JAVA_HOME="\$(java -XshowSettings:properties -version 2>&1 | awk '/java.home/ {print \$3}')" && \
+export CATALINA_BASE=/var/lib/tomcat9
+export WAR_FILE=\${CATALINA_BASE}/webapps/guacamole.war
+
+# Make sure tomcat uses proper directory on startup
+sudo sed -i "2 i CATALINA_BASE=\${CATALINA_BASE}" /usr/share/tomcat9/bin/catalina.sh
+
+# Fix Guacamole iframe issue where user loses context
+FOCUS_FIX="const iframe=window; var refocusGuacamole=function(){var e=document.activeElement;e\\&\\&e!==document.body||iframe.focus()};document.addEventListener(\\"click\\",refocusGuacamole),document.addEventListener(\\"keydown\\",refocusGuacamole);"
+cd /tmp
+unzip -p \${WAR_FILE} "index.html" | sed "s#</body>#<script type=\"text/javascript\">\${FOCUS_FIX}</script></body>#g" > index.html
+sudo jar -uf \${WAR_FILE} index.html
+
+# Configure Guacamole to not require subdomains
+PREFIX="\${DOMINO_PROJECT_OWNER}#\${DOMINO_PROJECT_NAME}#notebookSession#\${DOMINO_RUN_ID}"
+sudo ln -s "/var/lib/tomcat9/webapps/guacamole.war" "/var/lib/tomcat9/webapps/\${PREFIX}.war"
+
+#
+# Save all of the Domino environment variables so we can reload them
+#     in the new virtual desktop environment created by guacamole
+#
+export -p > \$HOME/.rdp-defaults
+
+# Start tomcat webserver (which powers guac-client)
+#sudo /usr/share/tomcat9/bin/daemon.sh --tomcat-user \${DOMINO_ACCOUNT_LOGIN} start
+sudo /usr/share/tomcat9/bin/startup.sh
+# Start xrdp service to pass data between guacd server and x
+sudo service xrdp start
+# Start guacd server to translate rdp commands to the web client
+sudo /etc/init.d/guacd start
+
+# Keep container running after services have been loaded
+while true; do sleep 60; done
+# (the gucamole server will start a new fluxbox session to run matlab)
+
+EOF
+# COPY flux-start.sh /opt/domino/workspaces/flux/start
+COPY <<EOF /opt/domino/workspaces/flux/start
+#!/bin/bash
+
+#
+# This is the application we want to start in the workspace
+#
+APPLICATION_TO_START="replaced_by_sed"
+START_CMD="xterm -e \$APPLICATION_TO_START"
+if [ -z \$APPLICATION_TO_START ]
+then
+    START_CMD=xterm
+fi
+
+#
+# Load back all the default Domino environment variables
+#     into this virtual desktop environment
+#
+source \$HOME/.domino-defaults
+source \$HOME/.rdp-defaults
+
+# Configure Fluxbox
+mkdir \$HOME/.fluxbox
+echo "session.screen0.toolbar.tools:  iconbar, systemtray" > \$HOME/.fluxbox/init
+echo "background: none" > \$HOME/.fluxbox/overlay
+
+# Change to project dir and launch the application
+cd \$DOMINO_WORKING_DIR || :
+# TODO: Change to using preferred /usr/bin/startfluxbux (requires adding BINARY_TO_START to .fluxbox/startup)
+fluxbox &
+\$START_CMD
+
+EOF
+
+# Two methods to remedy YARN Public key change, practically the same
+WORKDIR /tmp
+RUN curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/yarnkey.gpg || echo NOYARN
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list > /dev/null || echo YARN
+
+ENV YARNKEY=yarn-keyring.gpg
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo gpg --dearmour -o /usr/share/keyrings/$YARNKEY && \
+  echo "deb [signed-by=/usr/share/keyrings/$YARNKEY] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+
+RUN \
+ chmod 755 /opt/domino/workspaces/${WORKSPACE_NAME}/start && \
+ sed -i "s#WORKSPACE_APP_TO_START#$WORKSPACE_APP_TO_START#g"         /opt/domino/workspaces/${WORKSPACE_NAME}/start && \
+ chmod 755 /opt/domino/workspaces/flux/start
+RUN apt-get update; apt-get install --no-install-recommends -y ${TOMCAT_VERSION} ${TOMCAT_VERSION}-admin         ${TOMCAT_VERSION}-common         ${TOMCAT_VERSION}-user         brotli         build-essential         dbus               dbus-x11         dialog         eterm         expat         expect         eterm         ffmpeg         fluxbox         fonts-nanum         fonts-takao         freerdp2-dev         glib-networking         iptables         libavcodec-dev         libavformat-dev         libavutil-dev         libcairo2-dev         libfontconfig         libgconf-2-4         libglu1         libglu1-mesa         libgtk2.0         libjpeg-turbo8-dev         liblz4-1         liblz4-dev         libosmesa6         libossp-uuid-dev         libpam0g-dev         libpango1.0-dev         libpng-dev         libpulse-dev         libssh2-1-dev         libssl-dev         libswscale-dev         libtelnet-dev         libtool-bin         libvncserver-dev         libvorbis-dev         libwebp-dev         libwebsockets-dev         libxss1         monit         nfs-common         openbox                 rsync         syslog-ng         tigervnc-standalone-server         tigervnc-viewer         tigervnc-xorg-extension         tightvncserver         ttf-wqy-zenhei         tzdata         unzip         websockify         x11-session-utils         x11-utils         x11vnc         x11-xserver-utils         xauth         xfonts-100dpi         xfonts-75dpi         xinit         xorg         xorgxrdp         xrdp         xterm         xvfb 
+RUN rm -rf /var/lib/apt/lists/*;         wget https://archive.apache.org/dist/guacamole/${GUAC_VERSION}/source/guacamole-server-${GUAC_VERSION}.tar.gz;         tar -xvf guacamole-server-${GUAC_VERSION}.tar.gz;         cd guacamole-server-${GUAC_VERSION} || exit;         ./configure --with-init-dir=/etc/init.d;         make;         make install;         ldconfig;         make clean;         mkdir -p /var/lib/${TOMCAT_VERSION}/webapps;         wget -O /var/lib/${TOMCAT_VERSION}/webapps/guacamole.war https://archive.apache.org/dist/guacamole/${GUAC_VERSION}/binary/guacamole-${GUAC_VERSION}.war;         mkdir -p /etc/guacamole/;         echo "guacd-hostname:     localhost" >> /etc/guacamole/guacamole.properties;         echo "guacd-port:         4822" >> /etc/guacamole/guacamole.properties;         echo "auth-provider:      net.sourceforge.guacamole.net.basic.BasicFileAuthenticationProvider"             >> /etc/guacamole/guacamole.properties;         echo "basic-user-mapping: /etc/guacamole/user-mapping.xml" >> /etc/guacamole/guacamole.properties;         FOCUS_FIX="var refocusGuacamole=function(){var e=document.activeElement;e\&\&e!==document.body||window.parent.document.querySelector(\"iframe\").focus()};document.addEventListener(\"click\",refocusGuacamole),document.addEventListener(\"keydown\",refocusGuacamole);";         cd /tmp;         unzip -p /var/lib/${TOMCAT_VERSION}/webapps/guacamole.war "index.html" | sed "s#</body>#<script type=\"text/javascript\">${FOCUS_FIX}</script></body>#g" > index.html;         jar -uf "/var/lib/${TOMCAT_VERSION}/webapps/guacamole.war" index.html;         rm -f index.html;         chmod 755 "/var/lib/${TOMCAT_VERSION}/webapps/guacamole.war";         rm -rf /tmp/*
+# COPY user-mapping.xml /etc/guacamole/user-mapping.xml
+COPY <<EOF /etc/guacamole/user-mapping.xml
+<user-mapping>
+    <authorize
+         username="domino"
+         password="domino">
+       <connection name="default">
+         <protocol>rdp</protocol>
+         <param name="hostname">localhost</param>
+         <param name="username">replaced_by_sed</param>
+         <param name="password">domino</param>
+         <param name="disable-auth">true</param>
+         <param name="initial-program">/opt/domino/workspaces/flux/start</param>
+         <param name="resize-method">reconnect</param>
+       </connection>
+    </authorize>
+</user-mapping>
+EOF
+
+COPY <<EOF /etc/guacamole/guacd.conf
+[server]
+
+bind_host = 127.0.0.1
+bind_port = 4822
+EOF
+
+RUN mkdir -p /opt/jetbrains/pycharm && \
+ wget -nv -O- https://download.jetbrains.com/python/${PYCHARM_VERSION}.tar.gz | tar zxv -C /opt/jetbrains/pycharm --strip-components=1
+ 
+USER ubuntu
+
+
+#Pluggable tools
+PyCharm:
+  title: "PyCharm Pro Edition"
+  iconUrl: "https://upload.wikimedia.org/wikipedia/commons/1/1d/PyCharm_Icon.svg"
+  start: [ "/opt/domino/workspaces/pycharm/start" ]
+  httpProxy:
+    port: 8080
+    rewrite: false
+    internalPath: "/{{ownerUsername}}/{{projectName}}/{{sessionPathComponent}}/{{runId}}/#/?username=domino&password=domino"
+    requireSubdomain: false
