@@ -1,0 +1,131 @@
+FROM  quay.io/domino/domino-standard-environment:ubuntu22-py3.10-r4.4-domino5.11-standard
+USER root
+ARG DEBIAN_FRONTEND=noninteractive
+
+
+#######################################################
+#         Install CUDA and GPU dependencies           #
+#######################################################
+# Based off https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/11.7.0/ubuntu2004
+
+# Install CUDA Base
+ENV NVARCH x86_64
+
+ENV NVIDIA_REQUIRE_CUDA "cuda>=12.6 brand=unknown,driver>=470,driver<471 brand=grid,driver>=470,driver<471 brand=tesla,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=vapps,driver>=470,driver<471 brand=vpc,driver>=470,driver<471 brand=vcs,driver>=470,driver<471 brand=vws,driver>=470,driver<471 brand=cloudgaming,driver>=470,driver<471 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551"
+ENV NV_CUDA_CUDART_VERSION 12.6.68-1
+
+ENV NV_CUDA_COMPAT_PACKAGE cuda-compat-11-7
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gnupg2 curl ca-certificates && \
+    curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/${NVARCH}/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV CUDA_VERSION 12.6.1
+
+# For libraries in the cuda-compat-* package: https://docs.nvidia.com/cuda/eula/index.html#attachment-a
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-cudart-12-6=${NV_CUDA_CUDART_VERSION} \
+    cuda-compat-12-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Required for nvidia-docker v1
+RUN echo "/usr/local/nvidia/lib" >> /etc/ld.so.conf.d/nvidia.conf \
+    && echo "/usr/local/nvidia/lib64" >> /etc/ld.so.conf.d/nvidia.conf
+
+ENV PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
+
+# nvidia-container-runtime
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+
+
+
+# CUDANN9
+
+ENV NV_CUDNN_VERSION 9.3.0.75-1
+ENV NV_CUDNN_PACKAGE_NAME libcudnn9-cuda-12
+ENV NV_CUDNN_PACKAGE libcudnn9-cuda-12=${NV_CUDNN_VERSION}
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ${NV_CUDNN_PACKAGE} \
+    && apt-mark hold ${NV_CUDNN_PACKAGE_NAME} \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Install CUDA Runtime
+
+ENV NV_CUDA_LIB_VERSION 12.6.1-1
+ENV NV_NVTX_VERSION 12.6.68-1
+ENV NV_LIBNPP_VERSION 12.3.1.54-1
+ENV NV_LIBNPP_PACKAGE libnpp-12-6=${NV_LIBNPP_VERSION}
+ENV NV_LIBCUSPARSE_VERSION 12.5.3.3-1
+
+ENV NV_LIBCUBLAS_PACKAGE_NAME libcublas-12-6
+#ENV NV_LIBCUBLAS_VERSION 12.6.1.4-1
+#ENV NV_LIBCUBLAS_PACKAGE ${NV_LIBCUBLAS_PACKAGE_NAME}=${NV_LIBCUBLAS_VERSION}
+
+ENV NV_LIBCUBLAS_VERSION 12.6.3.3-1
+ENV NV_LIBCUBLAS_PACKAGE ${NV_LIBCUBLAS_PACKAGE_NAME}=${NV_LIBCUBLAS_VERSION}
+
+ENV NV_LIBNCCL_PACKAGE_NAME libnccl2
+ENV NV_LIBNCCL_PACKAGE_VERSION 2.22.3-1
+ENV NCCL_VERSION 2.22.3-1
+ENV NV_LIBNCCL_PACKAGE ${NV_LIBNCCL_PACKAGE_NAME}=${NV_LIBNCCL_PACKAGE_VERSION}+cuda12.6
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-libraries-12-6=${NV_CUDA_LIB_VERSION} \
+    ${NV_LIBNPP_PACKAGE} \
+    cuda-nvtx-12-6=${NV_NVTX_VERSION} \
+    libcusparse-12-6=${NV_LIBCUSPARSE_VERSION} \
+    ${NV_LIBCUBLAS_PACKAGE} \
+    ${NV_LIBNCCL_PACKAGE} \
+    && rm -rf /var/lib/apt/lists/*
+
+# Keep apt from auto upgrading the cublas and nccl packages. See https://gitlab.com/nvidia/container-images/cuda/-/issues/88
+RUN apt-mark hold ${NV_LIBCUBLAS_PACKAGE_NAME} ${NV_LIBNCCL_PACKAGE_NAME}
+
+# Install CUDA Toolkit (Developer Tools)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-libraries-12-6 \
+    cuda-toolkit-12-6 \
+    libcublas-12-6 \
+    libcublas-dev-12-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Add NVIDIA paths to environment variables
+ENV PATH /usr/local/cuda/bin:/usr/local/nvidia/bin:${PATH}
+ENV LD_LIBRARY_PATH /usr/local/cuda/lib64:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+
+# nvidia-container-runtime configuration
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+
+# Install Tensorflow
+RUN pip install tensorflow --user
+
+USER ubuntu
+# Create .vscode/settings.json with the desired content
+RUN mkdir -p /home/ubuntu/.vscode/User && \
+    cat <<EOF > /home/ubuntu/.vscode/User/settings.json
+{
+    "extensions.autoUpdate": false,
+    "extensions.autoCheckUpdates": false,
+    "python.pythonPath": "/opt/conda/bin/python",
+    "workbench.startupEditor": "none",
+    "workbench.colorTheme": "Default Dark+",
+    "python.defaultInterpreterPath": "/opt/conda/bin/python",
+    "jupyter.notebook.defaultKernel": {
+        "name": "python3",
+        "display_name": "Python 3"
+        },
+     "jupyter.kernels.excludePythonEnvironments": [
+        "/bin/python3",
+        "/usr/bin/python3"
+    ]
+}
+EOF
