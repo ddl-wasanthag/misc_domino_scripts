@@ -22,7 +22,7 @@ headers = {
 def fetch_all_apps():
     """Fetches all apps from Domino."""
     url = f"{domino_url}/v4/modelProducts"
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, verify=False)
     if response.status_code == 200:
         logging.debug("Apps fetched successfully")
         apps = response.json()
