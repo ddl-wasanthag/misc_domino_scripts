@@ -1,6 +1,22 @@
 #!/bin/bash
 set -x
 
+#create a tar file from Domino flyte packages from a workspace with Domino Standard Env 6.0, where these packages are available
+#cd /opt/conda/envs/python39/lib/python3.10/site-packages/
+
+# List to see what's there
+#ls -la
+##Created the backup directory structure
+#mkdir -p /tmp/domino-backup
+#Copied the Domino-specific packages
+## Copy all domino-related packages from Python 3.10 to the backup directory
+#cp -r domino* /tmp/domino-backup/
+#cp -r flytekit* /tmp/domino-backup/
+#cp -r flytekitplugins* /tmp/domino-backup/
+
+#cd /tmp
+#tar -czf domino-backup.tar.gz domino-backup/
+
 # Download the tar file from GitHub (use raw URL)
 wget -O /tmp/domino-flyte-backup.tar.gz https://github.com/ddl-wasanthag/misc_domino_scripts/raw/main/misc/domino-flyte-backup.tar.gz
 
